@@ -6,8 +6,18 @@ from database import engine, SessionLocal
 from sqlalchemy.orm import Session
 from typing import List, Dict, Optional
 
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -29,6 +39,7 @@ class TopicBase(BaseModel):
     category: str
 
 class TopicCreate(TopicBase):
+    user_id: int
     pass
 
 class Topic(TopicBase):
@@ -64,6 +75,10 @@ def get_db():
 
 db_dependency = Annotated [Session, Depends(get_db)]
 
+@app.get("/users/")
+def read_users(db: Session = Depends(get_db)):
+    return db.query(models.User).all()
+
 @app.post("/users/", response_model=User, status_code=status.HTTP_201_CREATED)
 def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db_user = models.User(username=user.username)
@@ -75,7 +90,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 # Endpoints para tópicos
 @app.post("/topics/", response_model=Topic, status_code=status.HTTP_201_CREATED)
 def create_topic(topic: TopicCreate, db: Session = Depends(get_db)):
-    db_topic = models.Topic(**topic.dict(), user_id=1)  # Use o ID do usuário apropriado
+    db_topic = models.Topic(**topic.dict(), user_id=topic.user_id)  # Use o ID do usuário apropriado
     db.add(db_topic)
     db.commit()
     db.refresh(db_topic)
